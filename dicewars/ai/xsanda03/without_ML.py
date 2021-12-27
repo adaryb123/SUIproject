@@ -15,13 +15,10 @@ class AI:
 
         # rozne konstanty do maxn algoritmu
         self.TIME_THRESHOLD = 1.00
-        self.MAX_MOVES_TO_FIND = 5
-        self.MAX_MOVES_TO_PLAY = 5
+        self.MAX_POTENTIAL_MOVES_TO_FIND = 3    #malo by byt viac ale potom je pomaly
+        self.MAX_POTENTIAL_MOVES_TO_PLAY = 3    #malo by byt viac ale potom je pomaly
         self.THRESHOLD = 0.4
         self.SCORE_WEIGHT = 2
-        if board.nb_players_alive() == 2:
-            self.THRESHOLD = 0.2
-            self.SCORE_WEIGHT = 3
 
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
         print("ai turn start")
@@ -41,7 +38,7 @@ class AI:
         if self.stage == "ATTACK":
             # ak nema cas, najde utok podla jednoduchsieho algoritmu
             if time_left <= self.TIME_THRESHOLD:
-                best_move = possible_turns(self.player_name, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_MOVES_TO_FIND)
+                best_move = possible_turns(self.player_name, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_POTENTIAL_MOVES_TO_FIND)
                 if best_move:
                     source, target, dice_count = best_move[0]
                     print("doing fast attack: " + str(source.get_name()) + "--->" + str(target.get_name()))
@@ -81,7 +78,7 @@ class AI:
         current_move_index = 0
 
         # najdu sa vsetky vyhodne tahy
-        turns = possible_turns(self.player_name, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_MOVES_TO_FIND)
+        turns = possible_turns(self.player_name, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_POTENTIAL_MOVES_TO_FIND)
         for source, target, dice_count in turns:
             #tah sa nasimuluje na hracej ploche
             new_board = self.show_board_after_attack(deepcopy(board), source, target, dice_count)
@@ -104,21 +101,32 @@ class AI:
         best_heuristic = None
         current_player = self.players_order[(current_player_index % len(self.players_order))]
 
-        # ak je aktualny hrac mrtvy, preskoci sa na dalsieho
+        # ak je aktualny hrac mrtvy, preskoci sa na dalsieho hraca (ak uz nieje dalsi hrac, spocita sa heuristika)
         if len(board.get_player_areas(current_player)) == 0:
-            return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
+            if current_player_index == last_player_index:
+                return self.calculate_heuristic(board)
+            else:
+                return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
 
         # najdu sa vsetky vyhodne tahy
-        turns = possible_turns(current_player, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_MOVES_TO_FIND)
+        turns = possible_turns(current_player, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_POTENTIAL_MOVES_TO_FIND)
+
+        # ak aktualny hrac nema ziadne dobre tahy, prejde sa na dalsieho hraca (ak uz nieje dalsi hrac tak sa spocita heurisitka)
+        if len(turns) == 0:
+            if current_player_index == last_player_index:
+                return self.calculate_heuristic(board)
+            else:
+                return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
+
         for source, target, dice_count in turns:
             # tah sa nasimuluje na hracej ploche
             new_board = self.show_board_after_attack(deepcopy(board), source, target, dice_count)
 
             # pre kazdy tah sa spocita heuristika:
-            if current_player_index == last_player_index and current_move_index == self.MAX_MOVES_TO_PLAY:
+            if current_player_index == last_player_index and current_move_index == self.MAX_POTENTIAL_MOVES_TO_PLAY:
                 # ak je toto posledny zo serie moznych utokov posledneho hraca, heuristika sa vyrata podla funkcie
                 heuristic = self.calculate_heuristic(new_board)
-            elif current_move_index == self.MAX_MOVES_TO_PLAY:
+            elif current_move_index == self.MAX_POTENTIAL_MOVES_TO_PLAY:
                 # ak je toto posledny zo serie moznych utokov aktualneho hraca, prejde sa na dalsieho hraca
                 heuristic = self.maxn_recursive(new_board, current_player_index + 1, last_player_index, 0)
             else:
@@ -135,7 +143,7 @@ class AI:
      Kazdy hrac sa snazi zmaximalizovat svoju hodnotu.
      Tato heuristika berie do uvahy iba pocet uzemi patriacich hracovi"""
     def calculate_heuristic(self, board):
-        heuristic =[]
+        heuristic = []
         for player in self.players_order:
             player_areas = board.get_player_areas(player)
             heuristic.append(len(player_areas))
@@ -144,7 +152,7 @@ class AI:
 
     """Tato heuristika berie do uvahy pocet uzemi patriacich hracovi minus pocet uzemi na hranici"""
     def calculate_heuristic2(self, board):
-        heuristic =[]
+        heuristic = []
         for player in self.players_order:
             player_areas = board.get_player_areas(player)
             unstable_areas = board.get_player_border(player)
@@ -159,14 +167,13 @@ class AI:
 
     """Funkcia rozhodne ci je nova heuristika lepsia ako doterajsie maximum (pre konkretneho hraca)"""
     def is_better(self, best_heuristic, heuristic, current_player):
-        if best_heuristic is None:
-            return True
-        elif heuristic is None:
+        if heuristic is None:
             return False
+        elif best_heuristic is None:
+            return True
         else:
             index = self.players_order.index(current_player)
             if heuristic[index] > best_heuristic[index]:
                 return True
             else:
                 return False
-
