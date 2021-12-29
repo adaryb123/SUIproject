@@ -26,7 +26,6 @@ class AI:
 
 
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
-        print("ai turn start")
 
         # najprv vykona vsetky presuny na hranicne uzemia
         if self.stage == "TRANSFER":
@@ -34,35 +33,19 @@ class AI:
             if transfer:
                 if (nb_transfers_this_turn + 1 == self.max_transfers):
                     self.stage = "ATTACK"
-                print("doing transfer")
                 return TransferCommand(transfer[0], transfer[1])
             else:
                 self.stage = "ATTACK"
 
         # potom vykona utoky
         if self.stage == "ATTACK":
-            # ak nema cas, najde utok podla jednoduchsieho algoritmu
-            if time_left <= self.TIME_THRESHOLD:
-                best_move = possible_turns(self.player_name, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_POTENTIAL_MOVES_TO_FIND)
-                if best_move:
-                    source, target, dice_count = best_move[0]
-                    print("doing fast attack: " + str(source.get_name()) + "--->" + str(target.get_name()))
-                    self.action_count += 1
-                    return BattleCommand(source.get_name(),target.get_name())
-
-
-            # ak ma cas, najde utok podla podla maxn algoritmu
-            else:
-                maxn_move = self.maxn(board)
-                if maxn_move is not None:
-                    print(maxn_move)
-                    print("doing maxn attack: " + str(maxn_move.source_name) + "--->" + str(maxn_move.target_name))
-                    self.action_count += 1
-                    return maxn_move
+            maxn_move = self.maxn(board, time_left)
+            if maxn_move is not None:
+                self.action_count += 1
+                return maxn_move
 
         # ak uz neexistuju vyhodne utoky, ukonci tah
         self.stage = "TRANSFER"
-        print("ending turn, how many actions made this turn:" + str(self.action_count))
         self.action_count = 0
         self.stored_turns_and_heuristics.clear()
         return EndTurnCommand()
@@ -150,7 +133,7 @@ class AI:
 
 
     """ inicializacna cast algoritmu maxn"""
-    def maxn(self, board):
+    def maxn(self, board, time_left):
         current_player_index = self.players_order.index(self.player_name)
         last_player_index = current_player_index + len(self.players_order)-1
         current_move_index = 0
@@ -166,12 +149,21 @@ class AI:
             # ak tento utok uz mame ulozeny, nebudeme ho znova prehladavat
             can_skip = False
             for stored_turn, stored_heuristic in self.stored_turns_and_heuristics:
-                # if turn == stored_turn:
                 if self.compare_turns(stored_turn, turn):
                     can_skip = True
             if can_skip:
-                print("skipping")
                 continue
+
+            # sirka a hlbka prehladavania sa urci podla toho kolko casu zostava
+            if time_left <= 1.00:
+                self.MAX_POTENTIAL_MOVES_TO_FIND = 1
+                self.MAX_POTENTIAL_MOVES_TO_PLAY = 1
+            elif time_left <= 5.00:
+                self.MAX_POTENTIAL_MOVES_TO_FIND = 1
+                self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
+            else:
+                self.MAX_POTENTIAL_MOVES_TO_FIND = 3
+                self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
 
             source, target, dice_count = turn
             #tah sa nasimuluje na hracej ploche

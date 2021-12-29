@@ -54,6 +54,7 @@ PLAYING_AIs = [
     'kb.stei_adt',
     'kb.stei_at',
     'kb.stei_dt',
+    'xsanda03.without_ML'
     # 'kb.xlogin42',
     # 'kb.xlogin00',
 ]
