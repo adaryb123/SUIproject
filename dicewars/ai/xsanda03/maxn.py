@@ -1,3 +1,14 @@
+"""
+Implementacia AI pomocou MaxN algoritmu
+
+Autori:     Michal Sandanus   xsanda03
+            David Pukanec     xpukan02
+            Adam Rybansky     xryban00
+            Filip Gutten      xgutte00
+
+Nazov timu:     xsanda03
+"""
+
 import logging
 from copy import deepcopy
 
@@ -8,7 +19,7 @@ class AI:
     def __init__(self, player_name, board, players_order, max_transfers):
         self.players_order = players_order
         self.player_name = player_name
-        self.logger = logging.getLogger('AI-WITHOUT-ML                          ')
+        self.logger = logging.getLogger('AI-maxn')
         self.max_transfers = max_transfers
         self.stage = "TRANSFER"     # AI najprv vykona vsetky presuny, potom zmeni stage na ATTACK a zacne utocit
         self.action_count = 0

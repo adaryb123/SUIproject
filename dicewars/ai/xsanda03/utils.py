@@ -1,5 +1,7 @@
-"""Tu sa nachadzaju funkcie, ktore sme prebrali z existujucich implementacii AI v projekte,
-niekde sme pridali drobne upravy"""
+"""
+Tu sa nachadzaju funkcie, ktore sme prebrali z existujucich implementacii AI v projekte,
+niekde sme pridali drobne upravy
+"""
 
 
 from ..utils import possible_attacks
