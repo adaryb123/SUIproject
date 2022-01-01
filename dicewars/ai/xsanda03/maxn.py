@@ -223,7 +223,7 @@ class AI:
         # ak aktualny hrac nema ziadne dobre tahy, prejde sa na dalsieho hraca (ak uz nieje dalsi hrac tak sa spocita heurisitka)
         if len(turns) == 0:
             if current_player_index == last_player_index:
-                return self.calculate_heuristic1_7_B(board)
+                return self.calculate_heuristic(board)
             else:
                 return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
 
