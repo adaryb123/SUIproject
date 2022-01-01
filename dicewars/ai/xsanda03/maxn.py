@@ -15,6 +15,7 @@ from copy import deepcopy
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from .utils import possible_turns, get_transfer_to_border
 
+
 class AI:
     def __init__(self, player_name, board, players_order, max_transfers):
         self.players_order = players_order
@@ -30,19 +31,18 @@ class AI:
 
         # rozne konstanty do maxn algoritmu
         self.TIME_THRESHOLD = 1.00
-        self.MAX_POTENTIAL_MOVES_TO_FIND = 3    #malo by byt viac ale potom je pomaly
-        self.MAX_POTENTIAL_MOVES_TO_PLAY = 3    #malo by byt viac ale potom je pomaly
+        self.MAX_POTENTIAL_MOVES_TO_FIND = 3
+        self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
         self.THRESHOLD = 0.4
         self.SCORE_WEIGHT = 2
 
 
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
-
         # najprv vykona vsetky presuny na hranicne uzemia
         if self.stage == "TRANSFER":
             transfer = get_transfer_to_border(board, self.player_name)
             if transfer:
-                if (nb_transfers_this_turn + 1 == self.max_transfers):
+                if nb_transfers_this_turn + 1 == self.max_transfers:
                     self.stage = "ATTACK"
                 return TransferCommand(transfer[0], transfer[1])
             else:
@@ -76,7 +76,7 @@ class AI:
         target_area = board.get_area(target)
         source_dice_count = source_area.get_dice()
         target_dice_count = target_area.get_dice()
-        transfered_dice_count = min(source_dice_count - 1 , 8 - target_dice_count)
+        transfered_dice_count = min(source_dice_count - 1, 8 - target_dice_count)
         source_area.set_dice(source_dice_count - transfered_dice_count)
         target_area.set_dice(target_dice_count + transfered_dice_count)
         return board
@@ -223,7 +223,7 @@ class AI:
         # ak aktualny hrac nema ziadne dobre tahy, prejde sa na dalsieho hraca (ak uz nieje dalsi hrac tak sa spocita heurisitka)
         if len(turns) == 0:
             if current_player_index == last_player_index:
-                return self.calculate_heuristic(board)
+                return self.calculate_heuristic1_7_B(board)
             else:
                 return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
 
@@ -250,28 +250,21 @@ class AI:
 
 
     """Heuristicka funkcia sa pocita zvlast pre kazdeho hraca a ulozi sa do listu.
-     Kazdy hrac sa snazi zmaximalizovat svoju hodnotu.
-     Tato heuristika berie do uvahy iba pocet uzemi patriacich hracovi"""
+       Kazdy hrac sa snazi zmaximalizovat svoju hodnotu"""
+
+    """Toto je najlepsia heurisitka, ostatne su v subore heursitics.py"""
+    """Tato heuristika berie do uvahy celkovy pocet uzemi hraca, a pocet uzemi hraca na hranici, ktore vedia utocit"""
     def calculate_heuristic(self, board):
         heuristic = []
         for player in self.players_order:
             player_areas = board.get_player_areas(player)
-            heuristic.append(len(player_areas))
 
-        return heuristic
-
-
-    """Tato heuristika berie do uvahy pocet uzemi patriacich hracovi minus pocet uzemi na hranici"""
-    def calculate_heuristic2(self, board):
-        heuristic = []
-        for player in self.players_order:
-            player_areas = board.get_player_areas(player)
+            can_attack = 0
             unstable_areas = board.get_player_border(player)
-            heuristic.append(len(player_areas) - len(unstable_areas))
+            for unstable_area in unstable_areas:
+                if unstable_area.can_attack():
+                    can_attack += 1
+
+            heuristic.append(can_attack + 0.5 * len(player_areas))
 
         return heuristic
-
-
-    """Tu sa bude volat model.predict(), ked budeme mat model"""
-    # def calculate_heuristic_withML(self,args):
-    #     return model.predict(args)
