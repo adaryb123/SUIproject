@@ -305,20 +305,19 @@ class AI:
     """This is the best heuristic. Others are in the file heuristics.py"""
     """This heuristic takes into account only the number of areas belonging to the player 
         and the average number of dice in the border territory"""
-    # def calculate_heuristic(self, board):
-    #     heuristic = []
-    #     for player in self.players_order:
-    #         player_areas = board.get_player_areas(player)
-    #         heuristic.append(len(player_areas))
-    #
-    #         avg_dices_on_borders = 0
-    #         unstable_areas = board.get_player_border(player)
-    #         borders = len(unstable_areas)
-    #         for unstable_area in unstable_areas:
-    #             avg_dices_on_borders += (unstable_area.get_dice() / borders)
-    #         heuristic.append(len(player_areas) * 1.7 + avg_dices_on_borders)
-    #
-    #     return heuristic
+    def calculate_heuristic(self, board):
+        heuristic = []
+        for player in self.players_order:
+            player_areas = board.get_player_areas(player)
+
+            avg_dices_on_borders = 0
+            unstable_areas = board.get_player_border(player)
+            borders = len(unstable_areas)
+            for unstable_area in unstable_areas:
+                avg_dices_on_borders += (unstable_area.get_dice() / borders)
+            heuristic.append(len(player_areas) * 1.7 + avg_dices_on_borders)
+
+        return heuristic
 
     def init_adj_board(self, board):
         """
