@@ -5,7 +5,6 @@ import random
 import numpy as np
 import socket
 import sys
-import pickle
 
 from .player import Player
 
@@ -17,7 +16,6 @@ class Game:
     """
     def __init__(self, board, area_ownership, players, game_config, addr, port, nicknames_order):
         """Initialize game and connect clients
-
         Parameters
         ----------
         players : int
@@ -26,7 +24,6 @@ class Game:
             IP address of the server
         port : int
             Port number
-
         Attributes
         ----------
         buffer : int
@@ -34,15 +31,6 @@ class Game:
         number_of_players : int
             Number of players
         """
-        # For scoring NN
-        self.game_dump = {}
-        # For likelihood of holding areas
-        self.end_turn_dump = {}
-
-        self.turn_counter = 0
-        self.end_turn_counter = 0
-        self.d_logger = logging.getLogger('DATA')
-
         self.buffer = 65535
         self.logger = logging.getLogger('SERVER')
 
@@ -88,101 +76,19 @@ class Game:
 
         self.summary = GameSummary()
 
-
-    def init_dump_board(self):
-        """
-        Creates adjacency matrix of board and converts it into vector.
-        Vector is then saved in game_dump variable
-        """
-        # Get areas
-        areas = self.get_state()['areas']
-        area_len = len(areas)
-
-        # Calculate len of vector
-        adj_len = int((area_len * (area_len - 1)) / 2)
-        # Init vector with zeros
-        adj_array = np.zeros(adj_len)
-
-        # For every area
-        for i in range(0,area_len):
-            adj_areas = areas[i+1]['adjacent_areas']
-
-            # For every adjacent area to area
-            for j in adj_areas:
-                # Only upper right side of adjacent matrix
-                if (j > i + 1):
-                    # Calculate index of adjacent vector where to store 1
-                    offset = int((i / 2) * ((area_len - 1) + (area_len - i)))
-                    # Store 1 as representation of adjacency into vector
-                    adj_array[offset + (int(j) - 1 - (i+1) )] = 1
-
-        # Init dicts for data dump for NN training
-        self.game_dump['board'] = adj_array
-        self.end_turn_dump['board'] = adj_array
-        self.end_turn_dump['turns'] = {}
-        self.game_dump['turns'] = {}
-
-
-    def dump_add_turn(self):
-        """
-        Creates owner,dice vectors and biggest area per turn
-
-        Returns: dict { owner: np.array,
-                        dice:  np.array,
-                        biggest: list   }
-        """
-
-        # Get areas
-        areas = self.get_state()['areas']
-        area_len = len(areas)
-        own_array = np.zeros(area_len)
-        dice_array =  np.ones(area_len)
-
-        # For every area
-        for i in range(0,area_len):
-            # Add to owner and dice array
-            own_array[i] = areas[i+1]['owner']
-            dice_array[i] = areas[i+1]['dice']
-        # Create result dict
-        turn = {'owner': own_array, 'dice': dice_array, 'biggest': self.get_state()['score']}
-
-        self.logger.debug("Current turn {}".format(self.turn_counter))
-        return  turn
-
-
     def run(self):
         """Main loop of the game
         """
         try:
-
             for i in range(1, self.number_of_players + 1):
                 player = self.players[i]
                 self.send_message(player, 'game_state')
-
-            # Init data dumping
-            self.init_dump_board()
-
             while True:
                 self.logger.debug("Current player {}".format(self.current_player.get_name()))
                 self.handle_player_turn()
-
-                # Added data dumping into dict
-                self.game_dump['turns'][self.turn_counter] = self.dump_add_turn()
-                self.turn_counter += 1
-                #
-
                 if self.check_win_condition():
                     sys.stdout.write(str(self.summary))
                     break
-
-            # After the game ends append data into pickle file
-            t_f = open("game_endturn.pickle", "ab")
-            pickle.dump(self.end_turn_dump, t_f)
-            t_f.close()
-
-            f = open("game.pickle", "ab")
-            pickle.dump(self.game_dump,f)
-            f.close()
 
         except KeyboardInterrupt:
             self.logger.info("Game interrupted.")
@@ -206,7 +112,6 @@ class Game:
     ##############
     def assign_area(self, area, player):
         """Assign area to a new owner
-
         Parameters
         ----------
         area : Area
@@ -234,16 +139,9 @@ class Game:
 
         elif msg['type'] == 'end_turn':
             self.nb_consecutive_end_of_turns += 1
-            #############
-            turn = self.dump_add_turn()
-            turn['player'] = self.current_player.get_name()
-            self.end_turn_dump['turns'][self.end_turn_counter] = turn
-            self.end_turn_counter += 1
-            #############
             affected_areas = self.end_turn()
             for p in self.players:
                 self.send_message(self.players[p], 'end_turn', areas=affected_areas)
-
 
         elif msg['type'] == 'transfer':
             self.nb_consecutive_end_of_turns = 0
@@ -254,11 +152,8 @@ class Game:
         else:
             self.logger.warning(f'Unexpected message type: {msg["type"]}')
 
-
-
     def get_state(self):
         """Get game state
-
         Returns
         -------
         dict
@@ -287,7 +182,6 @@ class Game:
 
     def battle(self, attacker, defender):
         """Carry out a battle
-
         Returns
         -------
         dict
@@ -350,7 +244,6 @@ class Game:
 
     def transfer(self, source, destination):
         """Carry out a transfer
-
         Returns
         -------
         dict
@@ -379,7 +272,6 @@ class Game:
 
     def end_turn(self):
         """Handles end turn command
-
         Returns
         -------
         dict
@@ -481,7 +373,6 @@ class Game:
 
     def check_win_condition(self):
         """Check win conditions
-
         Returns
         -------
         bool
@@ -494,8 +385,6 @@ class Game:
                     self.eliminate_player(p.get_name())
 
             self.process_win(None, -1)
-            # xpukan02 28.12.2021 added winner
-            self.game_dump['result'] = -1
             return True
 
         if self.nb_battles == self.max_battles_per_game:
@@ -503,8 +392,7 @@ class Game:
             for p in self.players.values():
                 if p.get_number_of_areas() > 0:
                     self.eliminate_player(p.get_name())
-            # xpukan02 28.12.2021 added winner
-            self.game_dump['result'] = -1
+
             self.process_win(None, -1)
             return True
 
@@ -512,8 +400,6 @@ class Game:
             player = self.players[p]
             if player.get_number_of_areas() == self.board.get_number_of_areas():
                 self.process_win(player.get_nickname(), player.get_name())
-                # xpukan02 28.12.2021 added winner
-                self.game_dump['result'] = player.get_name()
                 return True
 
         return False
@@ -529,12 +415,10 @@ class Game:
     ##############
     def get_message(self, player):
         """Read message from client
-
         Parameters
         ----------
         player : int
             Name of the client
-
         Returns
         -------
         str
@@ -547,7 +431,6 @@ class Game:
 
     def send_message(self, client, type, battle=None, winner=None, areas=None, transfer=None):
         """Send message to a client
-
         Parameters
         ----------
         client : Player
@@ -646,7 +529,6 @@ class Game:
 
     def add_client(self, connection, client_address, i):
         """Add client's socket to an instance of Player
-
         Parameters
         ----------
         connection : socket
@@ -655,7 +537,6 @@ class Game:
             Client's address and port number
         i : int
             Player's name
-
         Returns
         -------
         Player

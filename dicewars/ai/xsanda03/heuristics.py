@@ -93,3 +93,21 @@ def calculate_heuristic1_7_D(self, board):
     heuristic2 = self.calculate_heuristic7(board)
     zipped = zip(heuristic1, heuristic2)
     return [x / 1.5 + y for (x, y) in zipped]
+
+
+"""This heuristic takes into account only the number of areas belonging to the player 
+    and the average number of dice in the border territory"""
+def calculate_heuristic(self, board):
+    heuristic = []
+    for player in self.players_order:
+        player_areas = board.get_player_areas(player)
+        heuristic.append(len(player_areas))
+
+        avg_dices_on_borders = 0
+        unstable_areas = board.get_player_border(player)
+        borders = len(unstable_areas)
+        for unstable_area in unstable_areas:
+            avg_dices_on_borders += (unstable_area.get_dice() / borders)
+        heuristic.append(len(player_areas) * 1.7 + avg_dices_on_borders)
+
+    return heuristic

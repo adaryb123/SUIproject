@@ -217,8 +217,8 @@ class AI:
                 self.MAX_POTENTIAL_MOVES_TO_FIND = 1
                 self.MAX_POTENTIAL_MOVES_TO_PLAY = 1
             elif time_left <= 5.00:
-                self.MAX_POTENTIAL_MOVES_TO_FIND = 1
-                self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
+                self.MAX_POTENTIAL_MOVES_TO_FIND = 3
+                self.MAX_POTENTIAL_MOVES_TO_PLAY = 1
             else:
                 self.MAX_POTENTIAL_MOVES_TO_FIND = 3
                 self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
@@ -302,25 +302,24 @@ class AI:
 
     """The heuristic function is calculated separately for every player and stored in the list.
        Every player tries to maximize their value"""
-
     """This is the best heuristic. Others are in the file heuristics.py"""
-    """This heuristic take into account the total number of territories of the player and a number of player's
-       territories at the border that can attack"""
-    """def calculate_heuristic(self, board):
-        heuristic = []
-        for player in self.players_order:
-            player_areas = board.get_player_areas(player)
+    """This heuristic takes into account only the number of areas belonging to the player 
+        and the average number of dice in the border territory"""
+    # def calculate_heuristic(self, board):
+    #     heuristic = []
+    #     for player in self.players_order:
+    #         player_areas = board.get_player_areas(player)
+    #         heuristic.append(len(player_areas))
+    #
+    #         avg_dices_on_borders = 0
+    #         unstable_areas = board.get_player_border(player)
+    #         borders = len(unstable_areas)
+    #         for unstable_area in unstable_areas:
+    #             avg_dices_on_borders += (unstable_area.get_dice() / borders)
+    #         heuristic.append(len(player_areas) * 1.7 + avg_dices_on_borders)
+    #
+    #     return heuristic
 
-            can_attack = 0
-            unstable_areas = board.get_player_border(player)
-            for unstable_area in unstable_areas:
-                if unstable_area.can_attack():
-                    can_attack += 1
-
-            heuristic.append(can_attack + 0.5 * len(player_areas))
-
-        return heuristic
-        """
     def init_adj_board(self, board):
         """
         Creates adjacency matrix and converts it into vector.
@@ -374,17 +373,22 @@ class AI:
         return  final_array
 
     """ Function calculates heuristic using the trained model """
-    def calculate_heuristic(self, board):
-        # Extract all information needed for NN evaluation
-        turn_info = self.get_game_state(board)
-        # Convert torch tensor into proper shape and type
-        turn_info = torch.from_numpy(turn_info)
-        turn_info = turn_info.type(torch.float32)
-        turn_info = torch.unsqueeze(turn_info,0)
-
-        # Evaluation of game state
-        with torch.no_grad():
-            heuristic = self.network(turn_info).tolist()
-        # Returns list of list with scores for every player
-        heuristic = heuristic[0]
-        return heuristic
+    # def calculate_heuristic(self, board):
+    #     # Extract all information needed for NN evaluation
+    #     turn_info = self.get_game_state(board)
+    #     # Convert torch tensor into proper shape and type
+    #     turn_info = torch.from_numpy(turn_info)
+    #     turn_info = turn_info.type(torch.float32)
+    #     turn_info = torch.unsqueeze(turn_info, 0)
+    #
+    #     # Evaluation of game state
+    #     with torch.no_grad():
+    #         heuristic = self.network(turn_info).tolist()
+    #     # Returns list of list with scores for every player
+    #     heuristic = heuristic[0]
+    #     heuristic_ordered = []
+    #
+    #     for player in self.players_order:
+    #         heuristic_ordered.append(heuristic[player - 1])
+    #
+    #     return heuristic_ordered
