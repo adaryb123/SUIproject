@@ -53,3 +53,4 @@ def get_transfer_to_border(board, player_name):
                 return area.get_name(), neigh
 
     return None
+

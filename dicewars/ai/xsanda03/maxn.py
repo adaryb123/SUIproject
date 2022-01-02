@@ -11,10 +11,48 @@ Nazov timu:     xsanda03
 
 import logging
 from copy import deepcopy
+import torch
+from torch import nn
+import numpy as np
 
 from dicewars.client.ai_driver import BattleCommand, EndTurnCommand, TransferCommand
 from .utils import possible_turns, get_transfer_to_border
 
+
+class NN_heuristic(nn.Module):
+    """
+    Class representing NN model for calculating heuristic
+
+    """
+    def __init__(self):
+        super().__init__()
+
+        #Input layer
+        self.input_layer = nn.Linear(in_features=633, out_features=128, bias=True)
+
+        #Hidden layers
+        self.hidden_layer1 = nn.Linear(in_features=128, out_features=64, bias=True)
+        self.hidden_layer2 = nn.Linear(in_features=64, out_features=32, bias=True)
+
+        #Output layer
+        self.output_layer = nn.Linear(in_features=32, out_features=4, bias=True)
+
+        #Defining sigmoid activation function and softmax output
+        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=1)
+
+
+    def forward(self, input_vector):
+        output = self.input_layer(input_vector)
+        output = self.sigmoid(output)
+        output = self.hidden_layer1(output)
+        output = self.sigmoid(output)
+        output = self.hidden_layer2(output)
+        output = self.sigmoid(output)
+        output = self.output_layer(output)
+        output = self.softmax(output)
+
+        return output
 
 class AI:
     def __init__(self, player_name, board, players_order, max_transfers):
@@ -24,7 +62,7 @@ class AI:
         self.max_transfers = max_transfers
         self.stage = "TRANSFER"     # AI najprv vykona vsetky presuny, potom zmeni stage na ATTACK a zacne utocit
         self.action_count = 0
-
+        self.board = board
         # kedze jedno kolo pozostava z viac utokov, sem si ulozime mozne utoky ktore sme nasli pri hladani
         # najlepsieho utoku, aby sme ich nemuseli hladat znova pri hladani dalsieho najlepsieho utoku
         self.stored_turns_and_heuristics = []
@@ -35,6 +73,14 @@ class AI:
         self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
         self.THRESHOLD = 0.4
         self.SCORE_WEIGHT = 2
+
+        # Initialize NN and adjacency areas for game
+        self.adj_array = self.init_adj_board(board)
+        self.network = NN_heuristic()
+        # Model loading
+        self.network.load_state_dict(torch.load(r"dicewars/ai/xsanda03/model-heuristic.pth", map_location='cpu'))
+        self.network.eval()
+
 
 
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
@@ -254,7 +300,7 @@ class AI:
 
     """Toto je najlepsia heurisitka, ostatne su v subore heursitics.py"""
     """Tato heuristika berie do uvahy celkovy pocet uzemi hraca, a pocet uzemi hraca na hranici, ktore vedia utocit"""
-    def calculate_heuristic(self, board):
+    """def calculate_heuristic(self, board):
         heuristic = []
         for player in self.players_order:
             player_areas = board.get_player_areas(player)
@@ -267,4 +313,71 @@ class AI:
 
             heuristic.append(can_attack + 0.5 * len(player_areas))
 
+        return heuristic
+        """
+    def init_adj_board(self, board):
+        """
+        Creates adjacency matrix and converts it into vector.
+
+        Returns
+        np.array: adjacency matrix
+        """
+        areas = {}
+        # For every area on board get adjacent areas
+        for a in board.areas:
+            area = board.areas[a]
+            areas[a] = area.get_adjacent_areas_names()
+        # Calculate and init len of final array
+        area_len = len(areas)
+        adj_len = int((area_len * (area_len - 1)) / 2)
+        adj_array = np.zeros(adj_len)
+        # For every area
+        for i in range(0,area_len):
+            adj_areas = areas[str(i+1)]
+            # For every adjacent area
+            for j in adj_areas:
+                # Add 1 to indicate adjacency
+                if (j > i + 1):
+                    offset = int((i / 2) * ((area_len - 1) + (area_len - i)))
+                    adj_array[offset + (int(j) - 1 - (i+1) )] = 1
+        return adj_array
+
+    def get_game_state(self, board):
+
+        """
+        Function creates vector representing current game state.
+
+        Returns
+        np.array: adjacency matrix, owner and dice count, biggest area for player
+        """
+        final_array = np.array(deepcopy(self.adj_array))
+
+        # Add owner and dice count
+        for a in board.areas:
+            area = [board.areas[a].get_owner_name(), board.areas[a].get_dice()]
+            final_array = np.append(final_array,area)
+        # Add  Biggest area
+        for p in range(len(self.players_order)):
+
+            cmax = -1
+            for i in board.get_players_regions(p+1):
+                if len(i) > cmax:
+                    cmax = len(i)
+            final_array = np.append(final_array,cmax)
+
+        return  final_array
+
+    def calculate_heuristic(self, board):
+        # Extract all information needed for NN evaluation
+        turn_info = self.get_game_state(board)
+        # Convert torch tensor into proper shape and type
+        turn_info = torch.from_numpy(turn_info)
+        turn_info = turn_info.type(torch.float32)
+        turn_info = torch.unsqueeze(turn_info,0)
+
+        # Evaluation of game state
+        with torch.no_grad():
+            heuristic = self.network(turn_info).tolist()
+        # Returns list of list with scores for every player
+        heuristic = heuristic[0]
         return heuristic
