@@ -60,14 +60,14 @@ class AI:
         self.player_name = player_name
         self.logger = logging.getLogger('AI-maxn')
         self.max_transfers = max_transfers
-        self.stage = "TRANSFER"     # AI najprv vykona vsetky presuny, potom zmeni stage na ATTACK a zacne utocit
+        self.stage = "TRANSFER"     # The AI makes all the transfers first, then changes the stage to ATTACK and starts to attack
         self.action_count = 0
         self.board = board
-        # kedze jedno kolo pozostava z viac utokov, sem si ulozime mozne utoky ktore sme nasli pri hladani
-        # najlepsieho utoku, aby sme ich nemuseli hladat znova pri hladani dalsieho najlepsieho utoku
+        # since one round consists of several attack, here we store possible attack that we found while searching
+        # the beast attack so we don't have to look for them when looking for the next best attack
         self.stored_turns_and_heuristics = []
 
-        # rozne konstanty do maxn algoritmu
+        # various constans for maxn algorithm
         self.TIME_THRESHOLD = 1.00
         self.MAX_POTENTIAL_MOVES_TO_FIND = 3
         self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
@@ -84,7 +84,7 @@ class AI:
 
 
     def ai_turn(self, board, nb_moves_this_turn, nb_transfers_this_turn, nb_turns_this_game, time_left):
-        # najprv vykona vsetky presuny na hranicne uzemia
+        # at first, it makes all transfers to the border area
         if self.stage == "TRANSFER":
             transfer = get_transfer_to_border(board, self.player_name)
             if transfer:
@@ -94,21 +94,21 @@ class AI:
             else:
                 self.stage = "ATTACK"
 
-        # potom vykona utoky
+        # then it performs attacks
         if self.stage == "ATTACK":
             maxn_move = self.maxn(board, time_left)
             if maxn_move is not None:
                 self.action_count += 1
                 return maxn_move
 
-        # ak uz neexistuju vyhodne utoky, ukonci tah
+        # if there are no more advantageous attack, it ends the move
         self.stage = "TRANSFER"
         self.action_count = 0
         self.stored_turns_and_heuristics.clear()
         return EndTurnCommand()
 
 
-    """ funkcia vykona 1 utok a vrati modifikovanu hraciu plochu"""
+    """The function simulates 1 attack and returns the modified game board"""
     def show_board_after_attack(self, board, source, target, dice_count):
         source_area = board.get_area(source.get_name())
         target_area = board.get_area(target.get_name())
@@ -117,6 +117,7 @@ class AI:
         target_area.set_owner(source.get_owner_name())
         return board
 
+    """The function simulates 1 transfer and returns the modified game board"""
     def show_board_after_transfer(self, board, source, target):
         source_area = board.get_area(source)
         target_area = board.get_area(target)
@@ -127,7 +128,7 @@ class AI:
         target_area.set_dice(target_dice_count + transfered_dice_count)
         return board
 
-    """Funkcia rozhodne ci je nova heuristika lepsia ako doterajsie maximum (pre konkretneho hraca)"""
+    """The function decides whether the new heuristic is better than the current maximum (for a specific player)"""
     def is_better(self, best_heuristic, heuristic, current_player):
         if heuristic is None:
             return False
@@ -141,7 +142,7 @@ class AI:
                 return False
 
 
-    """ Funcia vymaze z ulozenych utokov tie, ktore sa uz nedaju vykonat"""
+    """The function deletes from saved attacks those than can no longer be performed"""
     def update_stored_turns(self, board):
         if len(self.stored_turns_and_heuristics) == 0:
             return
@@ -159,7 +160,7 @@ class AI:
         self.stored_turns_and_heuristics = list(filter(lambda a: a != -1, self.stored_turns_and_heuristics))
 
 
-    """ Funkcia najde najlepsi z ulozenych utokov"""
+    """The function finds the best of saved attacks"""
     def find_best_stored_turn(self, current_player):
         best_turn = None
         best_heuristic = None
@@ -179,7 +180,7 @@ class AI:
         return best_turn, best_heuristic
 
 
-    """ Funkcia porovnava ci su 2 utoky rovnake"""
+    """The function compares whether 2 attacks are the same"""
     def compare_turns(self, turn1, turn2):
         source1, target1, dice_count1 = turn1
         source2, target2, dice_count2 = turn2
@@ -189,21 +190,21 @@ class AI:
             return False
 
 
-    """ inicializacna cast algoritmu maxn"""
+    """Initialization part of the maxn algorithm"""
     def maxn(self, board, time_left):
         current_player_index = self.players_order.index(self.player_name)
         last_player_index = current_player_index + len(self.players_order)-1
         current_move_index = 0
 
-        # pozrieme ci mame ulozene nejake utoky z minula, ktore su stale validne
+        # it looks to see if we have saved any attacks from the past that are still valid
         self.update_stored_turns(board)
         best_move, best_heuristic = self.find_best_stored_turn(self.player_name)
 
-        # najdu sa vsetky vyhodne tahy
+        # all the good moves are found
         turns = possible_turns(self.player_name, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_POTENTIAL_MOVES_TO_FIND)
         for turn in turns:
 
-            # ak tento utok uz mame ulozeny, nebudeme ho znova prehladavat
+            # if we have already saved this attack, we would not search it again
             can_skip = False
             for stored_turn, stored_heuristic in self.stored_turns_and_heuristics:
                 if self.compare_turns(stored_turn, turn):
@@ -211,7 +212,7 @@ class AI:
             if can_skip:
                 continue
 
-            # sirka a hlbka prehladavania sa urci podla toho kolko casu zostava
+            # the width and depth of the scan is determined according to the amount of time that is left
             if time_left <= 1.00:
                 self.MAX_POTENTIAL_MOVES_TO_FIND = 1
                 self.MAX_POTENTIAL_MOVES_TO_PLAY = 1
@@ -223,25 +224,25 @@ class AI:
                 self.MAX_POTENTIAL_MOVES_TO_PLAY = 3
 
             source, target, dice_count = turn
-            #tah sa nasimuluje na hracej ploche
+            # the move is simulated on the playing field
             new_board = self.show_board_after_attack(deepcopy(board), source, target, dice_count)
 
-            # pre kazdy tah sa spocita heuristika
+            # the heuristic is calculated for every move
             heuristic = self.maxn_recursive(new_board, current_player_index, last_player_index, current_move_index + 1)
 
             self.stored_turns_and_heuristics.append([turn, heuristic])
-            # ak je tato heuristika lepsia ako doterajsie maximum, zapamatame si tento tah
+            # if this heuristic is better than the current maximum, this move is remembered
             if self.is_better(best_heuristic, heuristic, self.player_name):
                 best_move = BattleCommand(source.get_name(), target.get_name())
                 best_heuristic = heuristic
 
         return best_move
 
-
-    """ rekurzivna cast algoritmu maxn:
-    Vytvori sa strom prehladavnia s hlbkou n*m, kde m je pocet hracov a n je priemerny pocet utokov ktore vykona 
-    kazdy hrac. V listovych vrcholoch stromu sa stav hry ohodnoti manualne podla funkcie. V nelistovych vrcholoch 
-    sa vyberie maximum z ohodnoteni priamych potomkov vrchola. (Maximum sa vybera z pohladu aktualneho hraca)"""
+    """ The recursive part of the maxn algorithm:
+    A search tree with a depth of n * m is created, where m is the number of players and n is the average number
+    attacks performed by every player. The state of the game is evaluated manually according to the function
+    in the leaf tops of the tree. In the non-leaf tops of the tree the maximum is selected from the evaluation
+    of the direct descendants of the vertex. (maximum is selected from the current player's view) """
     def maxn_recursive(self, board, current_player_index, last_player_index, current_move_index):
         best_heuristic = None
         current_player = self.players_order[(current_player_index % len(self.players_order))]
@@ -256,17 +257,19 @@ class AI:
                     board = self.show_board_after_transfer(board,source,destination)
 
 
-        # ak je aktualny hrac mrtvy, preskoci sa na dalsieho hraca (ak uz nieje dalsi hrac, spocita sa heuristika)
+        # if the current player is dead, there is jump to the next player (if there is no other player,
+        # heuristic is calculated)
         if len(board.get_player_areas(current_player)) == 0:
             if current_player_index == last_player_index:
                 return self.calculate_heuristic(board)
             else:
                 return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
 
-        # najdu sa vsetky vyhodne tahy
+        # all the good moves are found
         turns = possible_turns(current_player, board, self.SCORE_WEIGHT, self.THRESHOLD, self.MAX_POTENTIAL_MOVES_TO_FIND)
 
-        # ak aktualny hrac nema ziadne dobre tahy, prejde sa na dalsieho hraca (ak uz nieje dalsi hrac tak sa spocita heurisitka)
+        # if the current player does not have any good moves, it moves to the next player (if there is no other player,
+        # the heuristic is calculated
         if len(turns) == 0:
             if current_player_index == last_player_index:
                 return self.calculate_heuristic(board)
@@ -274,32 +277,35 @@ class AI:
                 return self.maxn_recursive(board, current_player_index + 1, last_player_index, 0)
 
         for source, target, dice_count in turns:
-            # tah sa nasimuluje na hracej ploche
+            # the move is simulated on the playing field
             new_board = self.show_board_after_attack(deepcopy(board), source, target, dice_count)
 
-            # pre kazdy tah sa spocita heuristika:
+            # the heuristic is calculated for every move:
             if current_player_index == last_player_index and current_move_index == self.MAX_POTENTIAL_MOVES_TO_PLAY:
-                # ak je toto posledny zo serie moznych utokov posledneho hraca, heuristika sa vyrata podla funkcie
+                # if this is the last of a series of possible attacks, the heuristic is calculated according
+                # to the function
                 heuristic = self.calculate_heuristic(new_board)
             elif current_move_index == self.MAX_POTENTIAL_MOVES_TO_PLAY:
-                # ak je toto posledny zo serie moznych utokov aktualneho hraca, prejde sa na dalsieho hraca
+                # if this is the last of a series of possible attacks by the current player, it moves
+                # to the next player
                 heuristic = self.maxn_recursive(new_board, current_player_index + 1, last_player_index, 0)
             else:
-                # prejde sa na dalsi zo serie moznych utokov aktualneho hraca
+                # it moves to the next in a series of possible attacks by the current player
                 heuristic = self.maxn_recursive(new_board, current_player_index, last_player_index, current_move_index + 1)
 
-            # ak je tato heuristika lepsia ako doterajsie maximum, zapamatame si ju
+            # if this heuristic is better than the current maximum, it is remembered
             if self.is_better(best_heuristic, heuristic, current_player):
                 best_heuristic = heuristic
 
         return best_heuristic
 
 
-    """Heuristicka funkcia sa pocita zvlast pre kazdeho hraca a ulozi sa do listu.
-       Kazdy hrac sa snazi zmaximalizovat svoju hodnotu"""
+    """The heuristic function is calculated separately for every player and stored in the list.
+       Every player tries to maximize their value"""
 
-    """Toto je najlepsia heurisitka, ostatne su v subore heursitics.py"""
-    """Tato heuristika berie do uvahy celkovy pocet uzemi hraca, a pocet uzemi hraca na hranici, ktore vedia utocit"""
+    """This is the best heuristic. Others are in the file heuristics.py"""
+    """This heuristic take into account the total number of territories of the player and a number of player's
+       territories at the border that can attack"""
     """def calculate_heuristic(self, board):
         heuristic = []
         for player in self.players_order:
@@ -352,11 +358,11 @@ class AI:
         """
         final_array = np.array(deepcopy(self.adj_array))
 
-        # Add owner and dice count
+        # add owner and dice count
         for a in board.areas:
             area = [board.areas[a].get_owner_name(), board.areas[a].get_dice()]
             final_array = np.append(final_array,area)
-        # Add  Biggest area
+        # add the biggest area
         for p in range(len(self.players_order)):
 
             cmax = -1
@@ -367,7 +373,7 @@ class AI:
 
         return  final_array
 
-    """ Function calculates heuristic usign the trained model """
+    """ Function calculates heuristic using the trained model """
     def calculate_heuristic(self, board):
         # Extract all information needed for NN evaluation
         turn_info = self.get_game_state(board)

@@ -1,16 +1,14 @@
 """
-Tu sa nachadzaju funkcie, ktore sme prebrali z existujucich implementacii AI v projekte,
-niekde sme pridali drobne upravy
+Here are located all the functions that  we have taken from the existing AI implementations
+in the project. To some, we have made minor edits.
 """
-
 
 from ..utils import possible_attacks
 from ..utils import probability_of_holding_area, probability_of_successful_attack
 
-"""Funkcia vrati najlepsiu postupnost utokov ktore moze hrac vykonat v svojom tahu.
-   Pocet utokov je obmedzeny parametrom ammount"""
+"""The function returns the bets sequence of attacks that player can perform
+   their move. The number of attacks is limited by parameter amount"""
 def possible_turns(player_name, board, score_weight, treshold, ammount):
-
     largest_region = get_largest_region(board,player_name)
     all_turns = []
     for source, target in possible_attacks(board, player_name):
@@ -30,7 +28,7 @@ def possible_turns(player_name, board, score_weight, treshold, ammount):
         best_turns.append([source,target,dice_count])
     return best_turns
 
-"""Funkcia najde najvacsie suvisle uzemie daneho hraca"""
+"""The function finds the biggest continuous territory of the specific player"""
 def get_largest_region(board, player_name):
     players_regions = board.get_players_regions(player_name)
     max_region_size = max(len(region) for region in players_regions)
@@ -38,7 +36,7 @@ def get_largest_region(board, player_name):
     largest_region = max_sized_regions[0]
     return largest_region
 
-"""funkcia najde mozny presun jednotiek z vnutorneho uzemia na hranicu"""
+"""The function finds possible transfer of units from inner territory to the border"""
 def get_transfer_to_border(board, player_name):
     border_names = [a.name for a in board.get_player_border(player_name)]
     all_areas = board.get_player_areas(player_name)
