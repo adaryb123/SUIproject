@@ -248,7 +248,7 @@ class AI:
 
         if current_move_index == 0:
             for i in range(self.max_transfers):
-                transfer = get_transfer_to_border(board, self.player_name)
+                transfer = get_transfer_to_border(board, current_player)
                 if transfer is None:
                     break
                 else:
@@ -367,6 +367,7 @@ class AI:
 
         return  final_array
 
+    """ Function calculates heuristic usign the trained model """
     def calculate_heuristic(self, board):
         # Extract all information needed for NN evaluation
         turn_info = self.get_game_state(board)
